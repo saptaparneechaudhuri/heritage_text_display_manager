@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ */
+
+use Drupal\views\Views;
 use Drupal\views\ViewExecutable;
 use Drupal\views\Plugin\views\query\QueryPluginBase;
 
@@ -8,91 +13,79 @@ use Drupal\views\Plugin\views\query\QueryPluginBase;
  */
 function heritage_text_display_manager_views_query_alter(ViewExecutable $view, QueryPluginBase $query) {
 
-	
+  if ($view->id() == 'gita' && $view->current_display == 'rest_export_1') {
+    if (!isset($_GET['language'])) {
+      $langcode = 'dv';
+      // $langcode = 'en';
+    }
+    else {
+      $requested_language = ucfirst($_GET['language']);
+      // Getting all the available languages.
+      $languages = \Drupal::service('language_manager')->getLanguages();
+      foreach ($languages as $language) {
+        if ($requested_language == $language->getName()) {
+          $langcode = $language->getId();
 
+        }
+      }
 
-	
-	if($view->id() == 'gita' && $view->current_display == 'rest_export_1'){
-		if(!isset($_GET['language'])) {
-			$langcode = 'dv';
-			//$langcode = 'en';
+    }
+    if (isset($_GET['position'])) {
+      $position = $_GET['position'];
+      $term_position = db_query('SELECT entity_id FROM `taxonomy_term__field_position` WHERE field_position_value = :position AND bundle = :bundle', [':position' => $position, ':bundle' => $view->id()])->fetchField();
 
-		} 
-		else{
-			$requested_language = ucfirst($_GET['language']);
-			// Getting all the available languages.
-			$languages = \Drupal::service('language_manager')->getLanguages();
-			foreach($languages as $language){
-				if($requested_language == $language->getName()) {
-					$langcode = $language->getId();
-
-				} 
-			}
-
-		}
-		if(isset($_GET['position'])){
-			$position = $_GET['position'];
-			$term_position = db_query('SELECT entity_id FROM `taxonomy_term__field_position` WHERE field_position_value = :position AND bundle = :bundle', array(':position' => $position, ':bundle' => $view->id()))->fetchField();
-
-			$configuration = array(
-				'type'       => 'LEFT',
-				'table'      => 'node__field_positional_index',
-				'field'      => 'entity_id',
-				'left_table' => 'node_field_data',
-				'left_field' => 'nid',
-				'operator'   => '=',
-			);
-			$join = \Drupal\views\Views::pluginManager('join')
-				->createInstance('standard', $configuration);
-			$rel = $query->addRelationship('node__field_positional_index', $join, 'node_field_data');
-			$query->addTable('node__field_positional_index', $rel, $join, 'node__field_positional_index');
-			$query->addWhere('', 'node__field_positional_index.field_positional_index_target_id', $term_position, '=');
-		}
-		$query->addWhere('', 'node_field_data.langcode', $langcode, '=');
-	}
+      $configuration = [
+        'type'       => 'LEFT',
+        'table'      => 'node__field_positional_index',
+        'field'      => 'entity_id',
+        'left_table' => 'node_field_data',
+        'left_field' => 'nid',
+        'operator'   => '=',
+      ];
+      $join = Views::pluginManager('join')
+        ->createInstance('standard', $configuration);
+      $rel = $query->addRelationship('node__field_positional_index', $join, 'node_field_data');
+      $query->addTable('node__field_positional_index', $rel, $join, 'node__field_positional_index');
+      $query->addWhere('', 'node__field_positional_index.field_positional_index_target_id', $term_position, '=');
+    }
+    $query->addWhere('', 'node_field_data.langcode', $langcode, '=');
+  }
 }
 
 /**
  * Implements hook_views_pre_render().
  */
 function heritage_text_display_manager_views_pre_render(ViewExecutable $view) {
-	$field_names = array();
-	if($view->id() == 'gita' && $view->getDisplay()->display['id']== 'rest_export_1'){
+  $field_names = [];
+  if ($view->id() == 'gita' && $view->getDisplay()->display['id'] == 'rest_export_1') {
 
-		$parameters = $_GET;
-		//print_r($parameters);
-		//get the sources to show from the parameters
-		foreach($parameters as $key => $parameter){
-			$name = $key;
-			
-			$parameter_info = explode('_', $key);
-			// if no format is specified, all sources cannot be shown as different sources have different source ids, sources are a content type now
-			if($parameter_info[0] == 'field'){
-				
-				// if(count($parameter_info) == 3) {
-					
-				// 	$name = $key.'_text';
-					
+    $parameters = $_GET;
+    // print_r($parameters);
+    // get the sources to show from the parameters.
+    foreach ($parameters as $key => $parameter) {
+      $name = $key;
 
-				// }
-				$field_names[] = $name;
-				
-			}
-		}
-		// this does not look proper
-		//if(count($field_names) == 0) $field_names[] = 'field_'.$view->id().'_'.$view->field->id.'_text';
-		$field_names[] = 'title';
-		$field_names[] = 'nid';
+      $parameter_info = explode('_', $key);
+      // If no format is specified, all sources cannot be shown as different sources have different source ids, sources are a content type now.
+      if ($parameter_info[0] == 'field') {
 
-		//unset the fields that are not needed
-		foreach ($view->field as $key => $value) {
-			if(!in_array($key, $field_names)){
-				$value->options['exclude'] =  TRUE;
-			} 
-		}
-	}
+        // if(count($parameter_info) == 3) {.
+        // $name = $key.'_text';
+        // }.
+        $field_names[] = $name;
+
+      }
+    }
+    // This does not look proper
+    // if(count($field_names) == 0) $field_names[] = 'field_'.$view->id().'_'.$view->field->id.'_text';
+    $field_names[] = 'title';
+    $field_names[] = 'nid';
+
+    // Unset the fields that are not needed.
+    foreach ($view->field as $key => $value) {
+      if (!in_array($key, $field_names)) {
+        $value->options['exclude'] = TRUE;
+      }
+    }
+  }
 }
-
-
-
-
