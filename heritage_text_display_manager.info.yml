@@ -1,0 +1,5 @@
+name: Heritage Text Display Manager
+description: Manage The display of the heritage Texts
+core: 8.x
+package: Heritage
+type: module
