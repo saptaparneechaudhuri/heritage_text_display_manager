@@ -49,6 +49,7 @@ function heritage_text_display_manager_views_query_alter(ViewExecutable $view, Q
       $query->addWhere('', 'node__field_positional_index.field_positional_index_target_id', $term_position, '=');
     }
     $query->addWhere('', 'node_field_data.langcode', $langcode, '=');
+
   }
 }
 
@@ -59,6 +60,8 @@ function heritage_text_display_manager_views_pre_render(ViewExecutable $view) {
   $field_names = [];
   if ($view->id() == 'gita' && $view->getDisplay()->display['id'] == 'rest_export_1') {
 
+    // Db query to get language
+    // $langcode = db_query("SELECT langcode FROM `node_field_data` WHERE title = :title",[':title' => ])
     $parameters = $_GET;
     // print_r($parameters);
     // get the sources to show from the parameters.
@@ -69,23 +72,40 @@ function heritage_text_display_manager_views_pre_render(ViewExecutable $view) {
       // If no format is specified, all sources cannot be shown as different sources have different source ids, sources are a content type now.
       if ($parameter_info[0] == 'field') {
 
-        // if(count($parameter_info) == 3) {.
-        // $name = $key.'_text';
-        // }.
+        if (count($parameter_info) == 3) {
+          // $name = $key.'_text';
+          // make a db query on heritage_source_info to find out the other available sources
+          //
+          $available_sources = db_query("SELECT id,format FROM `heritage_source_info` WHERE parent_id = :parentid", [':parentid' => $parameter_info[2]])->fetchAll();
+          $name = $key . '_text';
+
+          for ($i = 0; $i < count($available_sources); $i++) {
+            $field_names[] = 'field_' . $parameter_info[1] . '_' . $available_sources[$i]->id . '_' . $available_sources[$i]->format;
+
+          }
+
+        }
         $field_names[] = $name;
+        $field_names[] = 'title';
+        $field_names[] = 'nid';
+        foreach ($view->field as $key => $value) {
+          if (!in_array($key, $field_names)) {
+            $value->options['exclude'] = TRUE;
+          }
+        }
 
       }
+
     }
     // This does not look proper
     // if(count($field_names) == 0) $field_names[] = 'field_'.$view->id().'_'.$view->field->id.'_text';
-    $field_names[] = 'title';
-    $field_names[] = 'nid';
-
+    // $field_names[] = 'title';
+    // $field_names[] = 'nid';.
     // Unset the fields that are not needed.
-    foreach ($view->field as $key => $value) {
-      if (!in_array($key, $field_names)) {
-        $value->options['exclude'] = TRUE;
-      }
-    }
+    // Foreach ($view->field as $key => $value) {
+    //   if (!in_array($key, $field_names)) {
+    //     $value->options['exclude'] = FALSE;
+    //   }
+    // }.
   }
 }
